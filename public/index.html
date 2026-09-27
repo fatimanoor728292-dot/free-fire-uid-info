@@ -53,7 +53,8 @@
       color: #ddd;
     }
 
-    input, select {
+    input,
+    select {
       width: 100%;
       padding: 14px;
       border: none;
@@ -79,6 +80,11 @@
 
     button:active {
       transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
     }
 
     #loading {
@@ -165,6 +171,12 @@
       font-size: 13px;
       margin-top: 25px;
     }
+
+    @media (max-width: 400px) {
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
@@ -179,15 +191,18 @@
 
   <div class="card">
 
-    <label>Free Fire UID</label>
+    <label for="uid">Free Fire UID</label>
+
     <input
       id="uid"
       type="text"
       inputmode="numeric"
       placeholder="Enter UID"
+      autocomplete="off"
     >
 
-    <label>Region</label>
+    <label for="region">Region</label>
+
     <select id="region">
       <option value="PK">Pakistan (PK)</option>
       <option value="IND">India (IND)</option>
@@ -199,9 +214,14 @@
       <option value="EU">Europe (EU)</option>
     </select>
 
-    <button onclick="searchPlayer()">🔍 Search Player</button>
+    <button id="searchBtn" type="button">
+      🔍 Search Player
+    </button>
 
-    <div id="loading">⏳ Searching player...</div>
+    <div id="loading">
+      ⏳ Searching player...
+    </div>
+
     <div id="error"></div>
 
   </div>
@@ -210,6 +230,7 @@
 
     <div class="profile">
       <h2 id="nickname">-</h2>
+
       <div class="uid">
         UID: <span id="playerUid">-</span>
       </div>
@@ -281,13 +302,19 @@ function getValue(obj, keys) {
   }
 
   for (const key of keys) {
-    if (obj[key] !== undefined && obj[key] !== null) {
+
+    if (
+      obj[key] !== undefined &&
+      obj[key] !== null
+    ) {
       return obj[key];
     }
+
   }
 
   return null;
 }
+
 
 function findValue(obj, keys) {
 
@@ -308,38 +335,365 @@ function findValue(obj, keys) {
       typeof obj[key] === "object"
     ) {
 
-      const found = findValue(obj[key], keys);
+      const found = findValue(
+        obj[key],
+        keys
+      );
 
       if (found !== null) {
         return found;
       }
+
     }
+
   }
 
   return null;
 }
 
+
 function show(id, value) {
 
-  document.getElementById(id).textContent =
+  const element = document.getElementById(id);
+
+  if (!element) {
+    return;
+  }
+
+  if (
     value !== null &&
     value !== undefined &&
     value !== ""
-      ? value
-      : "-";
+  ) {
+
+    element.textContent = value;
+
+  } else {
+
+    element.textContent = "-";
+
+  }
+
 }
+
 
 async function searchPlayer() {
 
-  const uid = document
-    .getElementById("uid")
-    .value
-    .trim();
+  const uidElement =
+    document.getElementById("uid");
 
-  const region = document
-    .getElementById("region")
-    .value;
+  const regionElement =
+    document.getElementById("region");
 
-  const loading = document.getElementById("loading");
-  const error = document.getElementById("error");
- 
+  const button =
+    document.getElementById("searchBtn");
+
+  const loading =
+    document.getElementById("loading");
+
+  const error =
+    document.getElementById("error");
+
+  const result =
+    document.getElementById("result");
+
+
+  const uid =
+    uidElement.value.trim();
+
+  const region =
+    regionElement.value;
+
+
+  error.style.display = "none";
+  error.textContent = "";
+
+  result.style.display = "none";
+
+
+  if (!uid) {
+
+    error.textContent =
+      "Please enter a Free Fire UID.";
+
+    error.style.display = "block";
+
+    return;
+  }
+
+
+  if (!/^[0-9]+$/.test(uid)) {
+
+    error.textContent =
+      "UID should contain numbers only.";
+
+    error.style.display = "block";
+
+    return;
+  }
+
+
+  button.disabled = true;
+  button.textContent = "⏳ Searching...";
+
+  loading.style.display = "block";
+
+
+  try {
+
+    const url =
+      "/api/player?uid=" +
+      encodeURIComponent(uid) +
+      "&region=" +
+      encodeURIComponent(region);
+
+
+    const response =
+      await fetch(url, {
+        method: "GET",
+        headers: {
+          "Accept": "application/json"
+        }
+      });
+
+
+    let data;
+
+    try {
+
+      data = await response.json();
+
+    } catch (jsonError) {
+
+      throw new Error(
+        "Server returned an invalid response."
+      );
+
+    }
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.error ||
+        data.message ||
+        "Unable to find player."
+      );
+
+    }
+
+
+    const player =
+      data.data ||
+      data.result ||
+      data;
+
+
+    const nickname =
+      findValue(player, [
+        "nickname",
+        "nickName",
+        "name",
+        "playerName",
+        "username"
+      ]);
+
+
+    const playerUid =
+      findValue(player, [
+        "uid",
+        "accountId",
+        "playerId",
+        "userId"
+      ]);
+
+
+    const level =
+      findValue(player, [
+        "level",
+        "accountLevel"
+      ]);
+
+
+    const likes =
+      findValue(player, [
+        "likes",
+        "like",
+        "liked"
+      ]);
+
+
+    const brRank =
+      findValue(player, [
+        "brRank",
+        "br_rank",
+        "battleRoyaleRank",
+        "rank"
+      ]);
+
+
+    const csRank =
+      findValue(player, [
+        "csRank",
+        "cs_rank",
+        "clashSquadRank"
+      ]);
+
+
+    const brPoints =
+      findValue(player, [
+        "brPoints",
+        "br_points",
+        "battleRoyalePoints",
+        "rankPoints"
+      ]);
+
+
+    const csPoints =
+      findValue(player, [
+        "csPoints",
+        "cs_points",
+        "clashSquadPoints"
+      ]);
+
+
+    const playerRegion =
+      findValue(player, [
+        "region",
+        "server",
+        "country"
+      ]);
+
+
+    const badges =
+      findValue(player, [
+        "badges",
+        "badge",
+        "badgeCount"
+      ]);
+
+
+    show(
+      "nickname",
+      nickname
+    );
+
+    show(
+      "playerUid",
+      playerUid || uid
+    );
+
+    show(
+      "level",
+      level
+    );
+
+    show(
+      "likes",
+      likes
+    );
+
+    show(
+      "brRank",
+      brRank
+    );
+
+    show(
+      "csRank",
+      csRank
+    );
+
+    show(
+      "brPoints",
+      brPoints
+    );
+
+    show(
+      "csPoints",
+      csPoints
+    );
+
+    show(
+      "playerRegion",
+      playerRegion || region
+    );
+
+    show(
+      "badges",
+      badges
+    );
+
+
+    document.getElementById(
+      "rawData"
+    ).textContent =
+      JSON.stringify(
+        data,
+        null,
+        2
+      );
+
+
+    result.style.display = "block";
+
+
+  } catch (err) {
+
+    error.textContent =
+      "❌ " +
+      (err.message ||
+      "Something went wrong.");
+
+
+    error.style.display = "block";
+
+
+  } finally {
+
+    loading.style.display = "none";
+
+    button.disabled = false;
+
+    button.textContent =
+      "🔍 Search Player";
+
+  }
+
+}
+
+
+/*
+  Button click
+*/
+
+document
+  .getElementById("searchBtn")
+  .addEventListener(
+    "click",
+    searchPlayer
+  );
+
+
+/*
+  Enter key support
+*/
+
+document
+  .getElementById("uid")
+  .addEventListener(
+    "keydown",
+    function(event) {
+
+      if (event.key === "Enter") {
+
+        searchPlayer();
+
+      }
+
+    }
+  );
+
+</script>
+
+</body>
+</html>
