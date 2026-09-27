@@ -1,1 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Free Fire UID Info</title>
 
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f1117;
+      color: white;
+    }
+
+    .container {
+      width: 92%;
+      max-width: 600px;
+      margin: 30px auto;
+    }
+
+    .title {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 28px;
+      color: #ffcc00;
+    }
+
+    .title p {
+      color: #aaa;
+      margin-top: 8px;
+    }
+
+    .card {
+      background: #191d27;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      color: #ddd;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: #282d39;
+      color: white;
+      font-size: 16px;
+      margin-bottom: 15px;
+      outline: none;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: #ffcc00;
+      color: #111;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    #loading {
+      display: none;
+      text-align: center;
+      color: #ffcc00;
+      margin: 15px 0;
+    }
+
+    #error {
+      display: none;
+      background: #4b1d1d;
+      color: #ffaaaa;
+      padding: 14px;
+      border-radius: 10px;
+      margin-top: 15px;
+    }
+
+    #result {
+      display: none;
+    }
+
+    .profile {
+      text-align: center;
+    }
+
+    .profile h2 {
+      color: #ffcc00;
+      margin: 5px 0;
+    }
+
+    .uid {
+      color: #aaa;
+      margin-bottom: 20px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      background: #252a35;
+      padding: 14px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .stat .label {
+      color: #aaa;
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .stat .value {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    details {
+      margin-top: 15px;
+    }
+
+    summary {
+      cursor: pointer;
+      color: #ffcc00;
+      padding: 10px;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #0b0d12;
+      padding: 12px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+
+    .footer {
+      text-align: center;
+      color: #777;
+      font-size: 13px;
+      margin-top: 25px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="title">
+    <h1>🔥 Free Fire UID Info</h1>
+    <p>Check public Free Fire player information</p>
+  </div>
+
+  <div class="card">
+
+    <label>Free Fire UID</label>
+    <input
+      id="uid"
+      type="text"
+      inputmode="numeric"
+      placeholder="Enter UID"
+    >
+
+    <label>Region</label>
+    <select id="region">
+      <option value="PK">Pakistan (PK)</option>
+      <option value="IND">India (IND)</option>
+      <option value="BD">Bangladesh (BD)</option>
+      <option value="SG">Singapore (SG)</option>
+      <option value="ME">Middle East (ME)</option>
+      <option value="BR">Brazil (BR)</option>
+      <option value="US">USA (US)</option>
+      <option value="EU">Europe (EU)</option>
+    </select>
+
+    <button onclick="searchPlayer()">🔍 Search Player</button>
+
+    <div id="loading">⏳ Searching player...</div>
+    <div id="error"></div>
+
+  </div>
+
+  <div id="result" class="card">
+
+    <div class="profile">
+      <h2 id="nickname">-</h2>
+      <div class="uid">
+        UID: <span id="playerUid">-</span>
+      </div>
+    </div>
+
+    <div class="stats">
+
+      <div class="stat">
+        <div class="label">Level</div>
+        <div class="value" id="level">-</div>
+      </div>
+
+      <div class="stat">
+        <div class="label">Likes</div>
+        <div class="value" id="likes">-</div>
+      </div>
+
+      <div class="stat">
+        <div class="label">BR Rank</div>
+        <div class="value" id="brRank">-</div>
+      </div>
+
+      <div class="stat">
+        <div class="label">CS Rank</div>
+        <div class="value" id="csRank">-</div>
+      </div>
+
+      <div class="stat">
+        <div class="label">BR Points</div>
+        <div class="value" id="brPoints">-</div>
+      </div>
+
+      <div class="stat">
+        <div class="label">CS Points</div>
+        <div class="value" id="csPoints">-</div>
+      </div>
+
+      <div class="stat">
+        <div class="label">Region</div>
+        <div class="value" id="playerRegion">-</div>
+      </div>
+
+      <div class="stat">
+        <div class="label">Badges</div>
+        <div class="value" id="badges">-</div>
+      </div>
+
+    </div>
+
+    <details>
+      <summary>📊 Full API Data</summary>
+      <pre id="rawData"></pre>
+    </details>
+
+  </div>
+
+  <div class="footer">
+    Made with ❤️ by Aziz Jaan
+  </div>
+
+</div>
+
+<script>
+
+function getValue(obj, keys) {
+
+  if (!obj || typeof obj !== "object") {
+    return null;
+  }
+
+  for (const key of keys) {
+    if (obj[key] !== undefined && obj[key] !== null) {
+      return obj[key];
+    }
+  }
+
+  return null;
+}
+
+function findValue(obj, keys) {
+
+  if (!obj || typeof obj !== "object") {
+    return null;
+  }
+
+  const direct = getValue(obj, keys);
+
+  if (direct !== null) {
+    return direct;
+  }
+
+  for (const key in obj) {
+
+    if (
+      obj[key] &&
+      typeof obj[key] === "object"
+    ) {
+
+      const found = findValue(obj[key], keys);
+
+      if (found !== null) {
+        return found;
+      }
+    }
+  }
+
+  return null;
+}
+
+function show(id, value) {
+
+  document.getElementById(id).textContent =
+    value !== null &&
+    value !== undefined &&
+    value !== ""
+      ? value
+      : "-";
+}
+
+async function searchPlayer() {
+
+  const uid = document
+    .getElementById("uid")
+    .value
+    .trim();
+
+  const region = document
+    .getElementById("region")
+    .value;
+
+  const loading = document.getElementById("loading");
+  const error = document.getElementById("error");
+ 
