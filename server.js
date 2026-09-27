@@ -4,25 +4,26 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// New Free Fire API
 const API_BASE = "https://freefireapis.lat";
 
-const ALLOWED_REGIONS = new Set([
-  "IND",
+const ALLOWED_REGIONS = [
   "BR",
-  "SG",
-  "RU",
-  "ID",
-  "TW",
+  "SAC",
   "US",
+  "NA",
+  "IND",
+  "BD",
+  "ID",
+  "ME",
   "VN",
   "TH",
-  "ME",
-  "PK",
   "CIS",
-  "BD",
-  "EU"
-]);
+  "RU",
+  "PK",
+  "SG",
+  "EU",
+  "TW"
+];
 
 const cache = new Map();
 const CACHE_TTL = 60 * 1000;
@@ -31,6 +32,10 @@ app.disable("x-powered-by");
 
 app.use(express.static(path.join(__dirname, "public")));
 
+
+/* =========================
+   HEALTH CHECK
+========================= */
 
 app.get("/health", (_req, res) => {
   res.json({
@@ -41,36 +46,46 @@ app.get("/health", (_req, res) => {
 });
 
 
+/* =========================
+   UID VALIDATION
+========================= */
+
 function validUid(uid) {
   return /^\d{5,15}$/.test(uid);
 }
 
 
-async function fetchJson(url) {
+/* =========================
+   API REQUEST
+========================= */
 
-  const now = Date.now();
+async function requestJson(url) {
 
   const cached = cache.get(url);
 
-  if (cached && now - cached.time < CACHE_TTL) {
+  if (
+    cached &&
+    Date.now() - cached.time < CACHE_TTL
+  ) {
     return cached.data;
   }
 
   const controller = new AbortController();
 
-  const timer = setTimeout(() => {
+  const timeout = setTimeout(() => {
     controller.abort();
   }, 15000);
-
 
   try {
 
     const response = await fetch(url, {
       method: "GET",
+
       headers: {
         "Accept": "application/json",
-        "User-Agent": "FreeFireUIDInfo/3.0"
+        "User-Agent": "FreeFireUIDInfo/4.0"
       },
+
       signal: controller.signal
     });
 
@@ -84,28 +99,17 @@ async function fetchJson(url) {
 
       data = JSON.parse(text);
 
-    } catch (error) {
+    } catch {
 
       throw new Error(
-        `External API returned invalid JSON (HTTP ${response.status}).`
-      );
-
-    }
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        data?.message ||
-        data?.error ||
-        `External API HTTP ${response.status}.`
+        `API returned invalid JSON (HTTP ${response.status}).`
       );
 
     }
 
 
     cache.set(url, {
-      time: now,
+      time: Date.now(),
       data
     });
 
@@ -114,21 +118,24 @@ async function fetchJson(url) {
 
   } finally {
 
-    clearTimeout(timer);
+    clearTimeout(timeout);
 
   }
 }
 
+
+/* =========================
+   PLAYER LOOKUP
+========================= */
 
 app.get("/api/player", async (req, res) => {
 
   const uid =
     String(req.query.uid || "").trim();
 
+
   const region =
-    String(
-      req.query.region || "PK"
-    )
+    String(req.query.region || "PK")
       .trim()
       .toUpperCase();
 
@@ -143,7 +150,7 @@ app.get("/api/player", async (req, res) => {
   }
 
 
-  if (!ALLOWED_REGIONS.has(region)) {
+  if (!ALLOWED_REGIONS.includes(region)) {
 
     return res.status(400).json({
       success: false,
@@ -167,31 +174,16 @@ app.get("/api/player", async (req, res) => {
 
 
     const data =
-      await fetchJson(url);
+      await requestJson(url);
 
 
-    /*
-      New API response structure:
+    console.log(
+      "API response:",
+      JSON.stringify(data).slice(0, 1000)
+    );
 
-      {
-        success: true,
-        result: {
-          basicInfo: {
-            accountId,
-            nickname,
-            region,
-            level,
-            rank,
-            rankingPoints,
-            badgeCnt,
-            liked,
-            csRank,
-            csRankingPoints
-          }
-        }
-      }
-    */
 
+    /* API returned an error */
 
     if (
       data &&
@@ -200,27 +192,36 @@ app.get("/api/player", async (req, res) => {
 
       return res.status(404).json({
         success: false,
+
         error:
           data.message ||
           data.error ||
-          "Player not found."
+          "Player not found in this region."
       });
 
     }
 
+
+    /* No result */
 
     if (
       !data ||
       !data.result
     ) {
 
-      return res.status(502).json({
+      return res.status(404).json({
         success: false,
-        error: "API returned no player data."
+
+        error:
+          "No player data found for this UID in this region."
       });
 
     }
 
+
+    /* =========================
+       NORMAL RESPONSE
+    ========================= */
 
     return res.json({
 
@@ -232,9 +233,16 @@ app.get("/api/player", async (req, res) => {
 
       account: data.result,
 
-      stats: null,
+      basicInfo:
+        data.result.basicInfo || null,
 
-      statsError: null
+      profileInfo:
+        data.result.profileInfo || null,
+
+      captainInfo:
+        data.result.captainInfo || null,
+
+      raw: data
 
     });
 
@@ -253,7 +261,7 @@ app.get("/api/player", async (req, res) => {
 
       error:
         error.message ||
-        "External Free Fire API unavailable."
+        "Free Fire API is currently unavailable."
 
     });
 
@@ -262,95 +270,45 @@ app.get("/api/player", async (req, res) => {
 });
 
 
-/*
-  Guild endpoint
-*/
+/* =========================
+   GUILD
+========================= */
 
 app.get("/api/guild", async (req, res) => {
 
-  const region =
-    String(req.query.region || "PK")
-      .trim()
-      .toUpperCase();
-
-  const guildID =
-    String(req.query.guildID || "").trim();
-
-
-  if (!ALLOWED_REGIONS.has(region)) {
-
-    return res.status(400).json({
-      success: false,
-      error: "Unsupported region."
-    });
-
-  }
-
-
-  if (!/^\d{5,20}$/.test(guildID)) {
-
-    return res.status(400).json({
-      success: false,
-      error: "Invalid guild ID."
-    });
-
-  }
-
-
   return res.status(501).json({
+
     success: false,
-    error: "Guild lookup is not enabled in this API version."
+
+    error:
+      "Guild lookup is not enabled yet."
+
   });
 
 });
 
 
-/*
-  Wishlist endpoint
-*/
+/* =========================
+   WISHLIST
+========================= */
 
 app.get("/api/wishlist", async (req, res) => {
 
-  const uid =
-    String(req.query.uid || "").trim();
-
-  const region =
-    String(req.query.region || "PK")
-      .trim()
-      .toUpperCase();
-
-
-  if (!validUid(uid)) {
-
-    return res.status(400).json({
-      success: false,
-      error: "Invalid UID."
-    });
-
-  }
-
-
-  if (!ALLOWED_REGIONS.has(region)) {
-
-    return res.status(400).json({
-      success: false,
-      error: "Unsupported region."
-    });
-
-  }
-
-
   return res.status(501).json({
+
     success: false,
-    error: "Wishlist lookup is not enabled in this API version."
+
+    error:
+      "Wishlist lookup is not enabled yet."
+
   });
 
 });
 
 
-/*
-  Website fallback
-*/
+/* =========================
+   FRONTEND
+========================= */
 
 app.get("*", (_req, res) => {
 
@@ -365,10 +323,6 @@ app.get("*", (_req, res) => {
 });
 
 
-app.listen(PORT, () => {
-
-  console.log(
-    `Free Fire UID Info running on port ${PORT}`
-  );
-
-});
+/* =========================
+   START SERVER
+========================= */
